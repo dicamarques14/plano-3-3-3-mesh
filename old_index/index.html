@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano 3-3-3 Manager</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function Plano333Manager() {
+            const [myLocation, setMyLocation] = useState('');
+            const [messages, setMessages] = useState([]);
+            const [qslMessages, setQslMessages] = useState([]);
+            
+            // Form states
+            const [callsign, setCallsign] = useState('');
+            const [location, setLocation] = useState('');
+            const [hops, setHops] = useState('');
+            
+            // QSL form states
+            const [qslFrom, setQslFrom] = useState('');
+            const [qslTo, setQslTo] = useState('');
+            const [qslHops, setQslHops] = useState('');
+            const [qslLocation, setQslLocation] = useState('');
+            
+            // Autocomplete states
+            const [callsignSuggestions, setCallsignSuggestions] = useState([]);
+            const [locationSuggestions, setLocationSuggestions] = useState([]);
+            const [showCallsignSuggestions, setShowCallsignSuggestions] = useState(false);
+            const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+            
+            // QSL autocomplete states
+            const [showQslFromSuggestions, setShowQslFromSuggestions] = useState(false);
+            const [showQslToSuggestions, setShowQslToSuggestions] = useState(false);
+            const [showQslLocationSuggestions, setShowQslLocationSuggestions] = useState(false);
+            
+            const [copied, setCopied] = useState(false);
+            const [activeTab, setActiveTab] = useState('received');
+
+            // Load data on mount
+            useEffect(() => {
+                const saved = loadFromStorage();
+                if (saved) {
+                    setMyLocation(saved.myLocation || '');
+                    setMessages(saved.messages || []);
+                    setQslMessages(saved.qslMessages || []);
+                }
+            }, []);
+
+            // Save whenever data changes
+            useEffect(() => {
+                saveToStorage({ myLocation, messages, qslMessages });
+            }, [myLocation, messages, qslMessages]);
+
+            const loadFromStorage = () => {
+                try {
+                    const data = localStorage.getItem('plano333-data');
+                    return data ? JSON.parse(data) : null;
+                } catch (e) {
+                    return null;
+                }
+            };
+
+            const saveToStorage = (data) => {
+                try {
+                    localStorage.setItem('plano333-data', JSON.stringify(data));
+                } catch (e) {
+                    console.error('Failed to save data');
+                }
+            };
+
+            const getUniqueCallsigns = () => {
+                const allCallsigns = [
+                    ...messages.map(m => m.callsign),
+                    ...qslMessages.map(m => m.from),
+                    ...qslMessages.map(m => m.to)
+                ];
+                return [...new Set(allCallsigns)].filter(Boolean);
+            };
+
+            const getUniqueLocations = () => {
+                const allLocations = [
+                    ...messages.map(m => m.location),
+                    ...qslMessages.map(m => m.location),
+                    myLocation
+                ];
+                return [...new Set(allLocations)].filter(Boolean);
+            };
+
+            const handleCallsignChange = (value) => {
+                setCallsign(value);
+                if (value.length > 0) {
+                    const suggestions = getUniqueCallsigns().filter(c => 
+                        c.toLowerCase().includes(value.toLowerCase())
+                    );
+                    setCallsignSuggestions(suggestions);
+                    setShowCallsignSuggestions(suggestions.length > 0);
+                } else {
+                    setShowCallsignSuggestions(false);
+                }
+            };
+
+            const handleLocationChange = (value) => {
+                setLocation(value);
+                if (value.length > 0) {
+                    const suggestions = getUniqueLocations().filter(l => 
+                        l.toLowerCase().includes(value.toLowerCase())
+                    );
+                    setLocationSuggestions(suggestions);
+                    setShowLocationSuggestions(suggestions.length > 0);
+                } else {
+                    setShowLocationSuggestions(false);
+                }
+            };
+
+            const handleQslFromChange = (value) => {
+                setQslFrom(value);
+                if (value.length > 0) {
+                    const suggestions = getUniqueCallsigns().filter(c => 
+                        c.toLowerCase().includes(value.toLowerCase())
+                    );
+                    setCallsignSuggestions(suggestions);
+                    setShowQslFromSuggestions(suggestions.length > 0);
+                } else {
+                    setShowQslFromSuggestions(false);
+                }
+            };
+
+            const handleQslToChange = (value) => {
+                setQslTo(value);
+                if (value.length > 0) {
+                    const suggestions = getUniqueCallsigns().filter(c => 
+                        c.toLowerCase().includes(value.toLowerCase())
+                    );
+                    setCallsignSuggestions(suggestions);
+                    setShowQslToSuggestions(suggestions.length > 0);
+                } else {
+                    setShowQslToSuggestions(false);
+                }
+            };
+
+            const handleQslLocationChange = (value) => {
+                setQslLocation(value);
+                if (value.length > 0) {
+                    const suggestions = getUniqueLocations().filter(l => 
+                        l.toLowerCase().includes(value.toLowerCase())
+                    );
+                    setLocationSuggestions(suggestions);
+                    setShowQslLocationSuggestions(suggestions.length > 0);
+                } else {
+                    setShowQslLocationSuggestions(false);
+                }
+            };
+
+            const addMessage = () => {
+                if (!callsign.trim() || !location.trim() || !hops.trim()) {
+                    alert('Please fill all fields');
+                    return;
+                }
+                
+                const newMessage = {
+                    id: Date.now(),
+                    callsign: callsign.trim().toUpperCase(),
+                    location: location.trim(),
+                    hops: parseInt(hops)
+                };
+                
+                setMessages([...messages, newMessage]);
+                setCallsign('');
+                setLocation('');
+                setHops('');
+            };
+
+            const addQslMessage = () => {
+                if (!qslFrom.trim() || !qslTo.trim() || !qslHops.trim() || !qslLocation.trim()) {
+                    alert('Please fill all fields');
+                    return;
+                }
+                
+                const newQsl = {
+                    id: Date.now(),
+                    from: qslFrom.trim().toUpperCase(),
+                    to: qslTo.trim().toUpperCase(),
+                    hops: parseInt(qslHops),
+                    location: qslLocation.trim()
+                };
+                
+                setQslMessages([...qslMessages, newQsl]);
+                setQslFrom('');
+                setQslTo('');
+                setQslHops('');
+                setQslLocation('');
+            };
+
+            const deleteMessage = (id) => {
+                setMessages(messages.filter(m => m.id !== id));
+            };
+
+            const deleteQsl = (id) => {
+                setQslMessages(qslMessages.filter(q => q.id !== id));
+            };
+
+            const generateQslReplies = () => {
+                if (!myLocation.trim()) {
+                    return 'Please set your location first';
+                }
+                
+                return messages.map(msg => 
+                    `QSL, ${msg.callsign}, ${msg.hops} hops, ${myLocation}`
+                ).join('\n');
+            };
+
+            const generateSummary = () => {
+                const grouped = messages.reduce((acc, msg) => {
+                    if (!acc[msg.callsign]) {
+                        acc[msg.callsign] = {
+                            callsign: msg.callsign,
+                            location: msg.location,
+                            hops: []
+                        };
+                    }
+                    acc[msg.callsign].hops.push(msg.hops);
+                    return acc;
+                }, {});
+
+                let summary = myLocation ? `My location: ${myLocation}\n\n` : '';
+                summary += '=== Received Messages ===\n';
+                
+                Object.values(grouped).forEach(radio => {
+                    summary += `${radio.callsign} (${radio.location}): ${radio.hops.join(', ')} hops\n`;
+                });
+
+                if (qslMessages.length > 0) {
+                    summary += '\n=== Observed QSL Messages ===\n';
+                    qslMessages.forEach(qsl => {
+                        summary += `${qsl.from} → ${qsl.to}, ${qsl.hops} hops, ${qsl.location}\n`;
+                    });
+                }
+
+                summary += '\n=== My QSL Replies ===\n';
+                summary += generateQslReplies();
+
+                return summary;
+            };
+
+            const copyToClipboard = () => {
+                const text = generateSummary();
+                navigator.clipboard.writeText(text).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                });
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+                    <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                        <h1 className="text-3xl font-bold text-indigo-900 mb-2">Plano 3-3-3</h1>
+                        <p className="text-gray-600 mb-6">Meshtastic Portugal - Message Manager</p>
+
+                        <div className="mb-6 p-4 bg-indigo-50 rounded-lg">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                My Location
+                            </label>
+                            <input
+                                type="text"
+                                value={myLocation}
+                                onChange={(e) => setMyLocation(e.target.value)}
+                                placeholder="e.g., Tomar"
+                                className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div className="flex mb-6 border-b border-gray-200">
+                            <button
+                                onClick={() => setActiveTab('received')}
+                                className={`flex-1 py-3 px-4 font-medium ${
+                                    activeTab === 'received'
+                                        ? 'text-indigo-600 border-b-2 border-indigo-600'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                Received CQ
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('observed')}
+                                className={`flex-1 py-3 px-4 font-medium ${
+                                    activeTab === 'observed'
+                                        ? 'text-indigo-600 border-b-2 border-indigo-600'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                Observed QSL
+                            </button>
+                        </div>
+
+                        {activeTab === 'received' && (
+                            <>
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                    <h2 className="text-lg font-semibold mb-4 text-gray-800">Add Received Message</h2>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={callsign}
+                                                onChange={(e) => handleCallsignChange(e.target.value)}
+                                                onBlur={() => setTimeout(() => setShowCallsignSuggestions(false), 200)}
+                                                placeholder="Callsign (e.g., AA11)"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            {showCallsignSuggestions && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                    {callsignSuggestions.map((suggestion, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setCallsign(suggestion);
+                                                                setShowCallsignSuggestions(false);
+                                                            }}
+                                                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={location}
+                                                onChange={(e) => handleLocationChange(e.target.value)}
+                                                onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
+                                                placeholder="Location (e.g., Lisboa)"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            {showLocationSuggestions && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                    {locationSuggestions.map((suggestion, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setLocation(suggestion);
+                                                                setShowLocationSuggestions(false);
+                                                            }}
+                                                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <input
+                                            type="number"
+                                            value={hops}
+                                            onChange={(e) => setHops(e.target.value)}
+                                            placeholder="Hops (e.g., 2)"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+
+                                        <button
+                                            onClick={addMessage}
+                                            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
+                                        >
+                                            <span>➕</span> Add Message
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {messages.length > 0 && (
+                                    <div className="mb-6">
+                                        <h2 className="text-lg font-semibold mb-3 text-gray-800">Received Messages ({messages.length})</h2>
+                                        <div className="space-y-2">
+                                            {messages.map((msg) => (
+                                                <div key={msg.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                                    <div className="flex-1">
+                                                        <span className="font-semibold text-indigo-600">{msg.callsign}</span>
+                                                        <span className="text-gray-600"> from </span>
+                                                        <span className="text-gray-800">{msg.location}</span>
+                                                        <span className="text-gray-600"> - </span>
+                                                        <span className="font-medium">{msg.hops} hops</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deleteMessage(msg.id)}
+                                                        className="text-red-500 hover:text-red-700 p-1"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {activeTab === 'observed' && (
+                            <>
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                    <h2 className="text-lg font-semibold mb-4 text-gray-800">Add Observed QSL</h2>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={qslFrom}
+                                                onChange={(e) => handleQslFromChange(e.target.value)}
+                                                onBlur={() => setTimeout(() => setShowQslFromSuggestions(false), 200)}
+                                                placeholder="From (e.g., AA11)"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            {showQslFromSuggestions && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                    {callsignSuggestions.map((suggestion, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setQslFrom(suggestion);
+                                                                setShowQslFromSuggestions(false);
+                                                            }}
+                                                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={qslTo}
+                                                onChange={(e) => handleQslToChange(e.target.value)}
+                                                onBlur={() => setTimeout(() => setShowQslToSuggestions(false), 200)}
+                                                placeholder="To (e.g., BB22)"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            {showQslToSuggestions && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                    {callsignSuggestions.map((suggestion, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setQslTo(suggestion);
+                                                                setShowQslToSuggestions(false);
+                                                            }}
+                                                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <input
+                                            type="number"
+                                            value={qslHops}
+                                            onChange={(e) => setQslHops(e.target.value)}
+                                            placeholder="Hops (e.g., 3)"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={qslLocation}
+                                                onChange={(e) => handleQslLocationChange(e.target.value)}
+                                                onBlur={() => setTimeout(() => setShowQslLocationSuggestions(false), 200)}
+                                                placeholder="Location (e.g., Porto)"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            {showQslLocationSuggestions && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                    {locationSuggestions.map((suggestion, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setQslLocation(suggestion);
+                                                                setShowQslLocationSuggestions(false);
+                                                            }}
+                                                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={addQslMessage}
+                                            className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                                        >
+                                            <span>➕</span> Add QSL
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {qslMessages.length > 0 && (
+                                    <div className="mb-6">
+                                        <h2 className="text-lg font-semibold mb-3 text-gray-800">Observed QSL Messages ({qslMessages.length})</h2>
+                                        <div className="space-y-2">
+                                            {qslMessages.map((qsl) => (
+                                                <div key={qsl.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                                    <div className="flex-1">
+                                                        <span className="font-semibold text-green-600">{qsl.from}</span>
+                                                        <span className="text-gray-600"> → </span>
+                                                        <span className="font-semibold text-blue-600">{qsl.to}</span>
+                                                        <span className="text-gray-600"> - </span>
+                                                        <span className="font-medium">{qsl.hops} hops</span>
+                                                        <span className="text-gray-600"> - </span>
+                                                        <span className="text-gray-800">{qsl.location}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deleteQsl(qsl.id)}
+                                                        className="text-red-500 hover:text-red-700 p-1"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {(messages.length > 0 || qslMessages.length > 0) && (
+                            <div className="p-4 bg-indigo-50 rounded-lg">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h2 className="text-lg font-semibold text-gray-800">Summary</h2>
+                                    <button
+                                        onClick={copyToClipboard}
+                                        className="flex items-center gap-2 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+                                    >
+                                        {copied ? '✓ Copied!' : '📋 Copy'}
+                                    </button>
+                                </div>
+                                <pre className="bg-white p-4 rounded-lg text-sm overflow-x-auto border border-indigo-200 whitespace-pre-wrap">
+                                    {generateSummary()}
+                                </pre>
+                            </div>
+                        )}
+
+                        {messages.length === 0 && qslMessages.length === 0 && (
+                            <div className="text-center py-12 text-gray-500">
+                                <p>No messages yet. Start adding received CQ messages or observed QSL replies!</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<Plano333Manager />, document.getElementById('root'));
+    </script>
+</body>
+</html>
